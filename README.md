@@ -323,8 +323,8 @@ The app may create or update these local files while running:
 | File | Purpose |
 | --- | --- |
 | `paper_context.json` | Stores the latest uploaded paper name and extracted text |
-| `results.json` | Stores the latest presentation practice metrics |
-| `practice_audio.wav` | Temporary microphone recording for speech analysis |
+| `results.json` | Stores the latest presentation practice metrics at the project root |
+| System temporary WAV | Short-lived microphone recording removed after analysis |
 | `data/uploads/` | Local uploaded documents, if used |
 
 These files are runtime artifacts and do not need to be committed.
@@ -360,7 +360,7 @@ These files are runtime artifacts and do not need to be committed.
 - Camera and microphone permissions are required for practice modes.
 - Faster Whisper runs on CPU by default, so first startup/transcription can take time.
 - The spoken viva app depends on `paper_context.json` from the latest uploaded paper.
-- The presentation practice server writes `results.json` relative to its running working directory.
+- The presentation practice server writes the project-root `results.json`, regardless of its launch directory.
 
 ---
 

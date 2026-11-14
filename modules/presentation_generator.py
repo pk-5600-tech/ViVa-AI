@@ -1,5 +1,5 @@
 import streamlit as st
-from llm.client import chat
+from llm.client import chat, LLMError
 
 PAPER_TEXT_LIMIT = 12000
 
@@ -9,15 +9,14 @@ def _paper_text():
 
 
 def _generate_material(prompt):
-    return chat(
-        system_prompt="You are an expert research presentation coach.",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
+    try:
+        return chat(
+            system_prompt="You are an expert research presentation coach.",
+            messages=[{"role": "user", "content": prompt}]
+        )
+    except LLMError as exc:
+        st.error(str(exc))
+        return None
 
 
 def show_presentation_generator():

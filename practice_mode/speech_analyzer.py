@@ -6,6 +6,7 @@ import time
 import os
 import re
 import numpy as np
+import tempfile
 
 
 class SpeechAnalyzer:
@@ -25,81 +26,63 @@ class SpeechAnalyzer:
 
         self.recording = False
         self.audio = []
-        self.thread = None
+        self.stream = None
+        self.recording_error = None
 
         self.sample_rate = 16000
 
-        self.filename = "practice_audio.wav"
+        self.filename = None
 
 
 
     def start_recording(self):
-
-        self.recording = True
         self.audio = []
+        self.recording_error = None
+        self.recording = True
+        try:
+            self.stream = sd.InputStream(
+                samplerate=self.sample_rate,
+                channels=1,
+                callback=self.record,
+            )
+            self.stream.start()
+        except Exception as exc:
+            self.recording = False
+            if self.stream is not None:
+                try:
+                    self.stream.close()
+                except Exception:
+                    pass
+            self.stream = None
+            raise RuntimeError("Microphone could not be opened. Check microphone permissions and availability.") from exc
 
-        self.thread = threading.Thread(
-            target=self.record
-        )
-
-        self.thread.start()
 
 
+    def record(self, indata, frames, time_info, status):
 
-    def record(self):
-
-        def callback(indata, frames, time_info, status):
-
-            if status:
-                print(status)
-
-            if self.recording:
-                self.audio.extend(indata.copy())
-
-
-
-        with sd.InputStream(
-            samplerate=self.sample_rate,
-            channels=1,
-            callback=callback
-        ):
-
-            while self.recording:
-
-                time.sleep(0.1)
+        if status:
+            self.recording_error = str(status)
+        if self.recording:
+            self.audio.append(indata.copy())
 
 
 
 
     def stop_recording(self):
-
         self.recording = False
+        if self.stream is not None:
+            self.stream.stop()
+            self.stream.close()
+            self.stream = None
+        if self.recording_error:
+            raise RuntimeError(f"Microphone recording reported an error: {self.recording_error}")
+        if not self.audio:
+            raise RuntimeError("No audio was recorded. Check microphone permissions and try again.")
 
-        if self.thread:
-            self.thread.join()
-
-        audio_data = np.array(
-            self.audio,
-            dtype=np.float32
-        )
-
-        print("Recorded samples:", len(audio_data))
-        print("Audio shape:", audio_data.shape)
-
-        if len(audio_data) > 0:
-
-            write(
-                self.filename,
-                self.sample_rate,
-                audio_data
-            )
-
-            print("Audio saved")
-
-        else:
-
-            print("No audio recorded")
-
+        audio_data = np.concatenate(self.audio, axis=0).astype(np.float32, copy=False)
+        with tempfile.NamedTemporaryFile(prefix="vivamate-", suffix=".wav", delete=False) as temp_audio:
+            self.filename = temp_audio.name
+        write(self.filename, self.sample_rate, audio_data)
         return self.filename
 
 

@@ -4,6 +4,7 @@ def initialize_session():
 
     defaults = {
         "paper_context": None,
+        "paper_hash": None,
 
         "generated_summary": None,
         "generated_outline": None,

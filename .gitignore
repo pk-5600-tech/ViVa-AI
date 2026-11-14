@@ -17,3 +17,18 @@ data/uploads/
 .vscode/
 
 results.json
+# Local environment
+.venv/
+venv/
+
+# Personal and temporary files
+paper_context.json
+practice_audio.wav
+tempCodeRunnerFile.py
+app_backup.py
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Generated files
+*.wav

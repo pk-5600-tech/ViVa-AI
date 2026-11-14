@@ -16,6 +16,8 @@ class VideoAnalyzer:
         self.total_frames = 0
         self.face_frames = 0
         self.eye_frames = 0
+        self.capture_error = None
+        self.capture_device = None
 
 
         self.face_mesh = mp.solutions.face_mesh.FaceMesh(
@@ -27,63 +29,64 @@ class VideoAnalyzer:
 
 
     def start(self):
+        self.total_frames = 0
+        self.face_frames = 0
+        self.eye_frames = 0
+        self.capture_error = None
+        self.capture_device = cv2.VideoCapture(0)
+        if not self.capture_device.isOpened():
+            self.capture_device.release()
+            self.capture_device = None
+            raise RuntimeError("Camera could not be opened. Check camera permissions and availability.")
+        ok, _ = self.capture_device.read()
+        if not ok:
+            self.capture_device.release()
+            self.capture_device = None
+            raise RuntimeError("Camera opened but returned no video frame.")
 
         self.running = True
-
-        self.thread = threading.Thread(
-            target=self.capture
-        )
-
+        self.thread = threading.Thread(target=self.capture, daemon=True)
         self.thread.start()
 
 
 
     def capture(self):
 
-        cap = cv2.VideoCapture(0)
+        cap = self.capture_device
+        try:
+            while self.running:
+                success, frame = cap.read()
+                if not success:
+                    self.capture_error = "Camera stopped returning frames."
+                    break
 
 
-        while self.running:
+                self.total_frames += 1
 
 
-            success, frame = cap.read()
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
 
-            if not success:
-                continue
-
-
-            self.total_frames += 1
-
-
-            rgb = cv2.cvtColor(
-                frame,
-                cv2.COLOR_BGR2RGB
-            )
-
-
-            result = self.face_mesh.process(rgb)
+                result = self.face_mesh.process(rgb)
 
 
 
-            if result.multi_face_landmarks:
+                if result.multi_face_landmarks:
 
-                self.face_frames += 1
-
-
-                face = result.multi_face_landmarks[0]
+                    self.face_frames += 1
 
 
-                if self.detect_eye_contact(
-                    face,
-                    frame.shape
-                ):
-
-                    self.eye_frames += 1
+                    face = result.multi_face_landmarks[0]
 
 
+                    if self.detect_eye_contact(face, frame.shape):
 
-        cap.release()
+                        self.eye_frames += 1
+        except Exception as exc:
+            self.capture_error = f"Camera analysis failed: {exc}"
+        finally:
+            if cap is not None:
+                cap.release()
 
 
 
@@ -231,9 +234,12 @@ class VideoAnalyzer:
         self.running=False
 
 
-        if hasattr(self,"thread"):
-
-            self.thread.join()
+        if hasattr(self, "thread"):
+            self.thread.join(timeout=5)
+            if self.thread.is_alive():
+                raise RuntimeError("Camera capture did not stop cleanly.")
+        if hasattr(self.face_mesh, "close"):
+            self.face_mesh.close()
 
 
 

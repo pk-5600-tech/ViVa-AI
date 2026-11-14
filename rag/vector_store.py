@@ -1,5 +1,7 @@
+
 from langchain_core.documents import Document
-from langchain_community.vectorstores import FAISS
+from langchain_core.vectorstores import InMemoryVectorStore
+
 
 def create_vector_store(chunks, embeddings, source_name):
 
@@ -16,7 +18,7 @@ def create_vector_store(chunks, embeddings, source_name):
             )
         )
 
-    vector_store = FAISS.from_documents(docs, embeddings)
+    vector_store = InMemoryVectorStore(embeddings)
+    vector_store.add_documents(docs)
 
     return vector_store
-    

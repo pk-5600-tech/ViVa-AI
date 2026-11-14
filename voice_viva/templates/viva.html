@@ -1,116 +1,412 @@
+
 <!DOCTYPE html>
-
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ViVaMaTe AI | Voice Viva</title>
 
-<title>Voice Viva</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-<style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0b1120;
+            color: #f8fafc;
+            min-height: 100vh;
+            padding: 30px 18px;
+        }
 
-body{
-    font-family:Arial;
-    background:#0f172a;
-    color:white;
-    text-align:center;
-    padding:40px;
-}
+        .container {
+            max-width: 950px;
+            margin: auto;
+        }
 
-button{
-    padding:12px 24px;
-    margin:10px;
-    cursor:pointer;
-}
+        header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
 
-#question{
-    font-size:24px;
-    margin-bottom:30px;
-}
+        header h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
 
-#transcript{
-    margin-top:30px;
-    padding:20px;
-    background:#1e293b;
-    border-radius:10px;
-}
+        header p {
+            color: #94a3b8;
+        }
 
-</style>
+        .card {
+            background: #151f32;
+            border: 1px solid #26344b;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 22px;
+        }
 
+        .card h2 {
+            font-size: 19px;
+            margin-top: 0;
+        }
+
+        #question {
+            font-size: 21px;
+            line-height: 1.6;
+            color: #e2e8f0;
+            min-height: 55px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        button {
+            border: none;
+            border-radius: 9px;
+            padding: 13px 22px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .primary {
+            background: #6366f1;
+            color: white;
+        }
+
+        .danger {
+            background: #dc4545;
+            color: white;
+        }
+
+        .secondary {
+            background: #26344b;
+            color: white;
+        }
+
+        #status {
+            color: #94a3b8;
+            margin-top: 17px;
+        }
+
+        #timer {
+            color: #a5b4fc;
+            font-size: 22px;
+            font-weight: bold;
+            margin-top: 12px;
+        }
+
+        #transcript {
+            background: #0b1120;
+            border-radius: 10px;
+            padding: 18px;
+            min-height: 100px;
+            line-height: 1.7;
+            color: #cbd5e1;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        #evaluation {
+            white-space: pre-wrap;
+            line-height: 1.8;
+            color: #cbd5e1;
+            overflow-wrap: anywhere;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .footer {
+            text-align: center;
+            color: #64748b;
+            margin-top: 30px;
+            font-size: 13px;
+        }
+
+        @media(max-width: 600px) {
+            header h1 {
+                font-size: 25px;
+            }
+
+            .card {
+                padding: 18px;
+            }
+
+            .controls button {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 
 <body>
 
-<h1>🎓 Voice Mock Viva</h1>
+<div class="container">
 
-<div id="question">
-Loading question...
-</div>
+    <header>
+        <h1>🎓 ViVaMaTe AI</h1>
+        <p>AI-Powered Live Voice Viva Examination</p>
+    </header>
 
-<button onclick="startRecording()">
+    <section class="card">
+        <h2>📚 Viva Question</h2>
 
-🎙 Start Answer
+        <div id="question">
+            Loading your viva question...
+        </div>
 
-</button>
+        <div class="controls">
+            <button class="primary" id="nextBtn" onclick="loadQuestion()">
+                Generate Question
+            </button>
+        </div>
+    </section>
 
-<button onclick="stopRecording()">
+    <section class="card">
+        <h2>🎙️ Voice Examination</h2>
 
-⏹ Stop Answer
+        <p style="color:#94a3b8">
+            Answer the question using your microphone.
+        </p>
 
-</button>
+        <div class="controls">
+            <button class="primary" id="startBtn" onclick="startRecording()">
+                🎙 Start Answer
+            </button>
 
-<div id="transcript">
+            <button class="danger" id="stopBtn" onclick="stopRecording()" disabled>
+                ⏹ Stop & Evaluate
+            </button>
+        </div>
 
-Transcript will appear here
+        <div id="status">Ready to start your viva.</div>
+        <div id="timer">00:00</div>
+    </section>
+
+    <section class="card">
+        <h2>📝 Live Answer Transcript</h2>
+
+        <div id="transcript">
+            Your spoken answer will appear here...
+        </div>
+    </section>
+
+    <section class="card hidden" id="evaluationCard">
+        <h2>🤖 AI Examiner Evaluation</h2>
+
+        <div id="evaluation"></div>
+    </section>
+
+    <div class="footer">
+        Powered by ViVaMaTe AI | Groq AI Examiner
+    </div>
 
 </div>
 
 <script>
+    const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
 
-async function loadQuestion(){
+    let recognition = null;
+    let finalTranscript = "";
+    let recording = false;
+    let startTime = 0;
+    let timerInterval = null;
+    let recognitionEnded = false;
 
-    const response =
-    await fetch(
-        "/generate_question"
-    );
+    const questionElement = document.getElementById("question");
+    const transcriptElement = document.getElementById("transcript");
+    const statusElement = document.getElementById("status");
+    const timerElement = document.getElementById("timer");
 
-    const data =
-    await response.json();
+    async function loadQuestion() {
+        try {
+            statusElement.textContent = "Generating question...";
+            document.getElementById("nextBtn").disabled = true;
 
-    document.getElementById(
-        "question"
-    ).innerText =
-    data.question;
-}
+            const response = await fetch("/generate_question");
+            const data = await response.json();
 
-loadQuestion();
+            if (!response.ok) {
+                throw new Error(data.error || "Question generation failed");
+            }
 
-async function startRecording(){
+            questionElement.textContent = data.question;
+            statusElement.textContent = "Question ready. Start answering.";
 
-    await fetch("/start");
+            transcriptElement.textContent =
+                "Your spoken answer will appear here...";
 
-    alert(
-        "Recording Started"
-    );
-}
+            document.getElementById("evaluationCard").classList.add("hidden");
 
-async function stopRecording(){
+        } catch (error) {
+            statusElement.textContent = error.message;
+        } finally {
+            document.getElementById("nextBtn").disabled = false;
+        }
+    }
 
-    const response =
-    await fetch("/stop");
+    async function startRecording() {
+        if (!SpeechRecognition) {
+            statusElement.textContent =
+                "Speech recognition is not supported. Please use Google Chrome.";
+            return;
+        }
 
-    const data =
-    await response.json();
+        try {
+            const response = await fetch("/start");
 
-    document.getElementById(
-        "transcript"
-    ).innerHTML =
+            if (!response.ok) {
+                throw new Error("Could not start the viva session.");
+            }
 
-    "<h3>Transcript</h3>" +
-    data.transcript +
+            finalTranscript = "";
+            recording = true;
+            recognitionEnded = false;
 
-    "<hr><h3>Evaluation</h3>" +
-    data.evaluation;
-}
+            recognition = new SpeechRecognition();
+            recognition.lang = "en-IN";
+            recognition.continuous = true;
+            recognition.interimResults = true;
 
+            recognition.onresult = function(event) {
+                let interimTranscript = "";
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const text = event.results[i][0].transcript;
+
+                    if (event.results[i].isFinal) {
+                        finalTranscript += text + " ";
+                    } else {
+                        interimTranscript += text;
+                    }
+                }
+
+                transcriptElement.textContent =
+                    (finalTranscript + interimTranscript).trim() ||
+                    "Listening...";
+            };
+
+            recognition.onerror = function(event) {
+                statusElement.textContent =
+                    "Microphone error: " + event.error;
+                recording = false;
+                clearInterval(timerInterval);
+                document.getElementById("startBtn").disabled = false;
+                document.getElementById("stopBtn").disabled = true;
+            };
+
+            recognition.onend = function() {
+                recognitionEnded = true;
+
+                if (recording) {
+                    try {
+                        recognition.start();
+                    } catch (error) {
+                        statusElement.textContent =
+                            "Voice recognition stopped unexpectedly.";
+                    }
+                }
+            };
+
+            recognition.start();
+
+            startTime = Date.now();
+
+            timerInterval = setInterval(function() {
+                const seconds = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(seconds / 60);
+
+                timerElement.textContent =
+                    String(minutes).padStart(2, "0") + ":" +
+                    String(seconds % 60).padStart(2, "0");
+            }, 1000);
+
+            document.getElementById("startBtn").disabled = true;
+            document.getElementById("stopBtn").disabled = false;
+
+            statusElement.textContent = "🔴 Recording... Speak now.";
+
+        } catch (error) {
+            recording = false;
+            statusElement.textContent = error.message;
+        }
+    }
+
+    async function stopRecording() {
+        if (!recording) return;
+
+        recording = false;
+
+        clearInterval(timerInterval);
+
+        if (recognition) {
+            recognition.onend = null;
+            try {
+                recognition.stop();
+            } catch (error) {
+                // Recognition may already have stopped after a browser error.
+            }
+        }
+
+        document.getElementById("startBtn").disabled = true;
+        document.getElementById("stopBtn").disabled = true;
+
+        statusElement.textContent = "Evaluating your answer with AI...";
+
+        const transcript = finalTranscript.trim();
+
+        transcriptElement.textContent =
+            transcript || "No speech detected.";
+
+        try {
+            const response = await fetch("/stop", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    transcript: transcript
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Evaluation failed");
+            }
+
+            transcriptElement.textContent = data.transcript;
+
+            document.getElementById("evaluation").textContent =
+                data.evaluation;
+
+            document.getElementById("evaluationCard")
+                .classList.remove("hidden");
+
+            statusElement.textContent = "✅ Viva evaluation completed.";
+
+        } catch (error) {
+            statusElement.textContent = error.message;
+        } finally {
+            document.getElementById("startBtn").disabled = false;
+        }
+    }
+
+    loadQuestion();
 </script>
 
 </body>

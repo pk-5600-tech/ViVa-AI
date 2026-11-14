@@ -155,7 +155,16 @@ Stop Practice
 
 async function startPractice(){
 
-    await fetch("/start");
+    const response = await fetch("/start", {method: "POST"}).catch(error => {
+        document.getElementById("results").textContent = "Could not contact the practice server: " + error.message;
+        return null;
+    });
+    if (!response) return;
+    const data = await response.json();
+    if (!response.ok) {
+        document.getElementById("results").textContent = data.error || "Could not start practice.";
+        return;
+    }
 
     document.getElementById("results").innerHTML =
 `
@@ -168,9 +177,17 @@ async function startPractice(){
 
 async function stopPractice(){
 
-    const response = await fetch("/stop");
+    const response = await fetch("/stop", {method: "POST"}).catch(error => {
+        document.getElementById("results").textContent = "Could not contact the practice server: " + error.message;
+        return null;
+    });
+    if (!response) return;
 
     const data = await response.json();
+    if (!response.ok) {
+        document.getElementById("results").textContent = data.error || "Practice analysis failed.";
+        return;
+    }
 
     const confidenceClass =
         data.confidence_score >= 85
